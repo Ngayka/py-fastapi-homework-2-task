@@ -3,62 +3,58 @@ from datetime import date
 from typing import Optional, List
 
 
-class MovieBaseSchema(BaseModel):
-    name: str
+class MovieCreateSchema(BaseModel):
+    name: constr(min_length=1, max_length=100)
     date: date
-    score: float
+    score: confloat(ge=0, le=100)
     overview: str
-    status: str
-    budget: float
-    revenue: float
-    country_id: int
-    country: str
-    genres: List[str]
-    actors: List[str]
-    languages: List[str]
+    status: Literal["RELEASED", "PLANNED", "CANCELLED"]
+    budget: Optional[confloat(ge=0)]
+    revenue: Optional[confloat(ge=0)]
+    country: Optional[str]
+    genres: List[str] = []
+    actors: List[str] = []
+    languages: List[str] = []
+
+    model_config = {"from_attributes": True}
 
 
-    model_config = {
-        "from_attributes": True
-    }
-
-class MovieCreateSchema(MovieBaseSchema):
-    pass
-
-
-class MovieDetailSchema(MovieBaseSchema):
+class MovieDetailSchema(BaseModel):
     id: int
-    country_id: int
-    country: str
-    genres: List[str]
-    actors: List[str]
-    languages: List[str]
+    name: constr(min_length=1, max_length=100)
+    date: date
+    score: confloat(ge=0, le=100)
+    overview: str
+    status: Literal["RELEASED", "PLANNED", "CANCELLED"]
+    budget: Optional[confloat(ge=0)]
+    revenue: Optional[confloat(ge=0)]
+    country: Optional[str]
+    genres: List[str] = []
+    actors: List[str] = []
+    languages: List[str] = []
 
-    model_config = {
-        "from_attributes": True
-    }
+    model_config = {"from_attributes": True}
+
 
 class MovieUpdateSchema(BaseModel):
-    name: Optional[str] = None
+    name: Optional[constr(min_length=1, max_length=100)] = None
     date: Optional[date] = None
-    score: Optional[float] = None
+    score: Optional[confloat(ge=0, le=100)] = None
     overview: Optional[str] = None
-    status: Optional[str] = None
-    budget: Optional[float] = None
-    revenue: Optional[float] = None
-    country_id: Optional[int] = None
+    status: Optional[Literal["RELEASED", "PLANNED", "CANCELLED"]] = None
+    budget: Optional[confloat(ge=0)] = None
+    revenue: Optional[confloat(ge=0)] = None
     country: Optional[str] = None
     genres: Optional[List[str]] = None
     actors: Optional[List[str]] = None
     languages: Optional[List[str]] = None
 
-    model_config = {
-        "from_attributes": True
-    }
+    model_config = {"from_attributes": True}
 
-class MovieListResponseSchema(MovieBaseSchema):
-    id: int
 
-    model_config = {
-        "from_attributes": True
-    }
+class MovieListResponseSchema(BaseModel):
+    movies: List[MovieDetailResponseSchema]
+    prev_page: Optional[str] = None
+    next_page: Optional[str] = None
+    total_pages: int
+    total_items: int
