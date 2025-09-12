@@ -1,6 +1,6 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, constr, confloat, conint
 from datetime import date
-from typing import Optional, List
+from typing import Optional, List, Literal
 
 
 class MovieCreateSchema(BaseModel):
@@ -53,7 +53,7 @@ class MovieUpdateSchema(BaseModel):
 
 
 class MovieListResponseSchema(BaseModel):
-    movies: List[MovieDetailResponseSchema]
+    movies: List[MovieDetailSchema]
     prev_page: Optional[str] = None
     next_page: Optional[str] = None
     total_pages: int

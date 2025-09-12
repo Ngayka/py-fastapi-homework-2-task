@@ -2,37 +2,43 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from datetime import date, timedelta
+from fastapi import HTTPException, Depends
 
-from database.models import MovieModel
+from database.models import (
+    MovieModel,
+    CountryModel,
+    GenreModel,
+    LanguageModel,
+    ActorModel)
+
 from schemas.movies import (
     MovieDetailSchema,
     MovieListResponseSchema,
-    MovieBaseSchema,
     MovieCreateSchema,
     MovieUpdateSchema,
 )
-from src.database.models import CountryModel
 
 
-async def get_or_create_by_name(db, Model, name: str):
-    stmt = select(Model).where(Model.name == name)
+
+async def get_or_create(db, Model, value: str):
+    stmt = select(Model).where(field == value)
     result = await db.execute(stmt)
     instance = result.scalar_one_or_none()
     if instance:
         return instance
-    instance = Model(name=name)
+    instance = Model(**{field.key: value})
     db.add(instance)
     await db.flush()
     return instance
 
 
 async def create_movie(db: AsyncSession, movie: MovieCreateSchema):
-    country = await get_or_create_by_name(db, CountryModel, movie.country)
-    genres = [await get_or_create_by_name(db, GenreModel, g) for g in movie.genre]
+    country = await get_or_create(db, CountryModel, movie.country)
+    genres = [await get_or_create(db, GenreModel, g) for g in movie.genres]
     languages = [
-        await get_or_create_by_name(db, LanguageModel, l) for l in movie.language
+        await get_or_create(db, LanguageModel, l) for l in movie.languages
     ]
-    actors = [await get_or_create_by_name(db, ActorModel, a) for a in movie.actor]
+    actors = [await get_or_create(db, ActorModel, a) for a in movie.actors]
     stmt = select(MovieModel).where(
         MovieModel.name == movie.name, MovieModel.date == movie.date
     )
@@ -40,7 +46,7 @@ async def create_movie(db: AsyncSession, movie: MovieCreateSchema):
     duplicate = result.scalar_one_or_none()
     if duplicate:
         raise HTTPException(
-            status_code=409, detail="Movie with this name and date already exists."
+            status_code=409, detail=f"A movie with the name '{duplicate.name}' and release date '{duplicate.date.isoformat()}' already exists."
         )
     if not (0 <= movie.score <= 100):
         raise HTTPException(status_code=400, detail="Invalid input data.")
