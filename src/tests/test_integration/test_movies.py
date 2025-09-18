@@ -27,7 +27,7 @@ async def test_get_movies_default_parameters(client, seed_database):
     """
     Test the `/movies/` endpoint with default pagination parameters.
     """
-    response = await client.get("/api/v1/theater/movies")
+    response = await client.get("/api/v1/theater/movies/")
     assert (
         response.status_code == 200
     ), "Expected status code 200, but got a different value"
@@ -301,7 +301,7 @@ async def test_get_movie_by_id_not_found(client):
     """
     movie_id = 1
 
-    response = await client.get(f"/api/v1/theater/movies/{movie_id}")
+    response = await client.get(f"/api/v1/theater/movies/{movie_id}/")
     assert (
         response.status_code == 404
     ), f"Expected status code 404, but got {response.status_code}"
@@ -338,7 +338,7 @@ async def test_get_movie_by_id_valid(client, db_session, seed_database):
     expected_movie = result_movie.scalars().first()
     assert expected_movie is not None, "Movie not found in database."
 
-    response = await client.get(f"/api/v1/theater/movies/{random_id}")
+    response = await client.get(f"/api/v1/theater/movies/{random_id}/")
     assert (
         response.status_code == 200
     ), f"Expected status code 200, but got {response.status_code}"
@@ -372,7 +372,7 @@ async def test_get_movie_by_id_fields_match_database(client, db_session, seed_da
     random_movie = result.scalars().first()
     assert random_movie is not None, "No movies found in the database."
 
-    response = await client.get(f"/api/v1/theater/movies/{random_movie.id}")
+    response = await client.get(f"/api/v1/theater/movies/{random_movie.id}/")
     assert (
         response.status_code == 200
     ), f"Expected status code 200, but got {response.status_code}"
@@ -448,7 +448,7 @@ async def test_create_movie_and_related_models(client, db_session):
         "languages": ["English", "French"],
     }
 
-    response = await client.post("/api/v1/theater/movies", json=movie_data)
+    response = await client.post("/api/v1/theater/movies/", json=movie_data)
     assert (
         response.status_code == 201
     ), f"Expected status code 201, but got {response.status_code}"
@@ -510,7 +510,7 @@ async def test_create_movie_duplicate_error(client, db_session, seed_database):
         "languages": ["Spanish"],
     }
 
-    response = await client.post("/api/v1/theater/movies", json=movie_data)
+    response = await client.post("/api/v1/theater/movies/", json=movie_data)
     assert (
         response.status_code == 409
     ), f"Expected status code 409, but got {response.status_code}"
@@ -534,7 +534,7 @@ async def test_delete_movie_success(client, db_session, seed_database):
 
     movie_id = movie.id
 
-    response = await client.delete(f"/api/v1/theater/movies/{movie_id}")
+    response = await client.delete(f"/api/v1/theater/movies/{movie_id}/")
     assert (
         response.status_code == 204
     ), f"Expected status code 204, but got {response.status_code}"
@@ -552,7 +552,7 @@ async def test_delete_movie_not_found(client):
     """
     non_existent_id = 99999
 
-    response = await client.delete(f"/api/v1/theater/movies/{non_existent_id}")
+    response = await client.delete(f"/api/v1/theater/movies/{non_existent_id}/")
     assert (
         response.status_code == 404
     ), f"Expected status code 404, but got {response.status_code}"
@@ -581,7 +581,7 @@ async def test_update_movie_success(client, db_session, seed_database):
     }
 
     response = await client.patch(
-        f"/api/v1/theater/movies/{movie_id}", json=update_data
+        f"/api/v1/theater/movies/{movie_id}/", json=update_data
     )
     assert (
         response.status_code == 200
@@ -611,7 +611,7 @@ async def test_update_movie_not_found(client):
     update_data = {"name": "Non-existent Movie", "score": 90.0}
 
     response = await client.patch(
-        f"/api/v1/theater/movies/{non_existent_id}", json=update_data
+        f"/api/v1/theater/movies/{non_existent_id}/", json=update_data
     )
     assert (
         response.status_code == 404

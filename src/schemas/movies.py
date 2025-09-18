@@ -1,39 +1,94 @@
-from pydantic import BaseModel, constr, confloat, conint
-from datetime import date
+from pydantic import BaseModel, constr, confloat, conint, Field, field_validator
+from datetime import date, datetime
 from typing import Optional, List, Literal
+
+from database.models import MovieStatusEnum
+
+class LanguageSchema(BaseModel):
+    id: int
+    name: str
+    model_config = {
+        "from_attributes": True
+    }
+
+
+class CountrySchema(BaseModel):
+    id: int
+    code: str
+    name: Optional[str]
+    model_config = {"from_attributes": True}
+
+
+class GenreSchema(BaseModel):
+    id: int
+    name: str
+    model_config = {"from_attributes": True}
+
+class ActorSchema(BaseModel):
+    id: int
+    name: str
+    model_config = {"from_attributes": True}
+
+
+class MovieListItemSchema(BaseModel):
+    id: int
+    name: str
+    date: date
+    score: float
+    overview: str
+
+    model_config = {
+        "from_attributes": True,
+    }
 
 
 class MovieCreateSchema(BaseModel):
-    name: constr(min_length=1, max_length=100)
+    name: str
     date: date
-    score: confloat(ge=0, le=100)
+    score: float = Field(..., ge=0, le=100)
     overview: str
-    status: Literal["RELEASED", "PLANNED", "CANCELLED"]
-    budget: Optional[confloat(ge=0)]
-    revenue: Optional[confloat(ge=0)]
-    country: Optional[str]
-    genres: List[str] = []
-    actors: List[str] = []
-    languages: List[str] = []
+    status: MovieStatusEnum
+    budget: float = Field(..., ge=0)
+    revenue: float = Field(..., ge=0)
+    country: str
+    genres: List[str]
+    actors: List[str]
+    languages: List[str]
 
     model_config = {"from_attributes": True}
 
+class MovieBaseSchema(BaseModel):
+    name: str = Field(..., max_length=255)
+    date: date
+    score: float = Field(..., ge=0, le=100)
+    overview: str
+    status: MovieStatusEnum
+    budget: float = Field(..., ge=0)
+    revenue: float = Field(..., ge=0)
 
-class MovieDetailSchema(BaseModel):
+    model_config = {"from_attributes": True}
+
+    @field_validator("date")
+    @classmethod
+    def validate_date(cls, value):
+        current_year = datetime.now().year
+        if value.year > current_year + 1:
+            raise ValueError(
+                f"The year in 'date' cannot be greater than {current_year + 1}."
+            )
+        return value
+
+
+class MovieDetailSchema(MovieBaseSchema):
     id: int
-    name: constr(min_length=1, max_length=100)
-    date: date
-    score: confloat(ge=0, le=100)
-    overview: str
-    status: Literal["RELEASED", "PLANNED", "CANCELLED"]
-    budget: Optional[confloat(ge=0)]
-    revenue: Optional[confloat(ge=0)]
-    country: Optional[str]
-    genres: List[str] = []
-    actors: List[str] = []
-    languages: List[str] = []
+    country: CountrySchema
+    genres: List[GenreSchema]
+    actors: List[ActorSchema]
+    languages: List[LanguageSchema]
 
-    model_config = {"from_attributes": True}
+    model_config = {
+        "from_attributes": True,
+    }
 
 
 class MovieUpdateSchema(BaseModel):
@@ -41,7 +96,7 @@ class MovieUpdateSchema(BaseModel):
     date: Optional[date] = None
     score: Optional[confloat(ge=0, le=100)] = None
     overview: Optional[str] = None
-    status: Optional[Literal["RELEASED", "PLANNED", "CANCELLED"]] = None
+    status: Optional[MovieStatusEnum] = None
     budget: Optional[confloat(ge=0)] = None
     revenue: Optional[confloat(ge=0)] = None
     country: Optional[str] = None
@@ -53,8 +108,12 @@ class MovieUpdateSchema(BaseModel):
 
 
 class MovieListResponseSchema(BaseModel):
-    movies: List[MovieDetailSchema]
+    movies: List[MovieListItemSchema]
     prev_page: Optional[str] = None
     next_page: Optional[str] = None
     total_pages: int
     total_items: int
+
+    model_config = {
+        "from_attributes": True,
+    }

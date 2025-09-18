@@ -13,80 +13,101 @@ from schemas.movies import (
     MovieListResponseSchema,
     MovieCreateSchema,
     MovieUpdateSchema,
+    MovieListItemSchema
 )
-from crud import get_movies, get_movie, create_movie, update_movie, delete_movie_crud
+from crud import create_movie, update_movie, delete_movie_crud
+
+from src.schemas.movies import MovieListItemSchema
 
 router = APIRouter()
 
 
-@router.get("/movies/", response_model=MovieListResponseSchema)
+@router.get("/movies/",
+            response_model=MovieListResponseSchema,
+            responses = {
+            404: {
+            "description": "No movies found.",
+            "content": {
+                "application/json": {"example": {"detail": "No movies found."}}
+            },
+        }
+    },
+)
 async def list_movies(
     db: AsyncSession = Depends(get_db),
     page: int = Query(1, ge=1),
     per_page: int = Query(10, ge=1, le=20),
 ):
-    total_items = await db.scalar(select(func.count()).select_from(MovieModel))
+    offset = (page - 1) * per_page
+    count_movies = select(func.count(MovieModel.id))
+    total_items = await db.scalar(count_movies)
     if total_items == 0:
         raise HTTPException(status_code=404, detail="No movies found.")
+
+    order_by = MovieModel.default_order_by()
+    stmt = select(MovieModel)
+    if order_by:
+        stmt =stmt.order_by(*order_by)
+    stmt = stmt.offset(offset).limit(per_page)
+
+    result = await db.execute(stmt)
+    movies = result.scalars().all()
+
+    if not movies:
+        raise HTTPException(status_code=404, detail="No movies found.")
+    movie_list = [MovieListItemSchema.model_validate(movie) for movie in movies]
+
     total_pages = (total_items + per_page - 1) // per_page
 
     if page > total_pages and total_items > 0:
         raise HTTPException(status_code=404, detail="No movies found.")
 
-    offset = (page - 1) * per_page
+    total_pages = (total_items + per_page - 1) // per_page
+    response = MovieListResponseSchema(movies=movie_list,
+                                       prev_page=(
+                                           f"/theater/movies/?page={page - 1}&per_page={per_page}"
+                                           if page > 1
+                                           else None
+                                       ),
+                                       next_page=(
+                                           f"/theater/movies/?page={page + 1}&per_page={per_page}"
+                                           if page < total_pages
+                                           else None
+                                       ),
+                                       total_pages=total_pages,
+                                       total_items=total_items)
+    return response
 
-    result = await db.execute(select(MovieModel).offset(offset).limit(per_page))
-    movies = result.scalars().all()
-    movies_pydantic = [
-        MovieDetailResponseSchema.model_validate(
-            {
-                "id": movie.id,
-                "name": movie.name,
-                "date": movie.date,
-                "score": movie.score,
-                "genres": [g.name for g in movie.genres] if movie.genres else [],
-                "overview": movie.overview,
-                "status": movie.status,
-                "languages": [g.name for g in movie.language] if movie.language else [],
-                "budget": movie.budget,
-                "revenue": movie.revenue,
-                "country": movie.country,
-                "actors": [a.name for a in movie.actor] if movie.actors else [],
-            }
-        )
-        for movie in movies
-    ]
-
-    base_url = "/theater/movies"
-    prev_page = f"{base_url}/?page={page - 1}&per_page={per_page}" if page > 1 else ""
-    next_page = (
-        f"{base_url}/?page={page + 1}&per_page={per_page}" if page < total_pages else ""
+@router.get("/movies/{movie_id}/", response_model=MovieDetailSchema, status_code=200)
+async def get_movie_by_id(movie_id: int, db: AsyncSession = Depends(get_db)):
+    stmt = (
+        select(MovieModel)
+        .options(
+            joinedload(MovieModel.country),
+            joinedload(MovieModel.genres),
+            joinedload(MovieModel.actors),
+            joinedload(MovieModel.languages),
+        ).where(MovieModel.id == movie_id)
     )
 
-    return MovieListResponseSchema(
-        movies=movies_pydantic,
-        prev_page=prev_page,
-        next_page=next_page,
-        total_pages=total_pages,
-        total_items=total_items,
-    )
+    result = await db.execute(stmt)
+    movie = result.scalars().first()
 
-
-@router.get("/movies/{movie_id}", response_model=MovieDetailSchema)
-async def read_movie(movie_id: int, db: AsyncSession = Depends(get_db)):
-    movie = await get_movie(db, movie_id)
     if not movie:
-        raise HTTPException(status_code=404, detail="Movie not found.")
-    return movie
+        raise HTTPException(
+            status_code=404, detail="Movie with the given ID was not found."
+        )
+    return MovieDetailSchema.model_validate(movie)
 
 
-@router.post("/movies", response_model=MovieListResponseSchema, status_code=201)
+
+@router.post("/movies/", response_model=MovieDetailSchema, status_code=201)
 async def add_movie(movie: MovieCreateSchema, db: AsyncSession = Depends(get_db)):
     new_movie = await create_movie(db, movie)
     return new_movie
 
 
-@router.patch("/movies/{movie_id}")
+@router.patch("/movies/{movie_id}/")
 async def edit_movie(
     movie_id: int, movie: MovieUpdateSchema, db: AsyncSession = Depends(get_db)
 ):
@@ -95,7 +116,7 @@ async def edit_movie(
     return {"detail": "Movie updated successfully."}
 
 
-@router.delete("/movies/{movie_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/movies/{movie_id}/", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_movie(movie_id: int, db: AsyncSession = Depends(get_db)):
     deleted_movie = await delete_movie_crud(db, movie_id)
     if not deleted_movie:
